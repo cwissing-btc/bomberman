@@ -1,0 +1,80 @@
+# Builds the player client for macOS as a universal app (Apple Silicon and
+# Intel). There is no macOS SDK on the Linux build host, so this runs on a
+# GitHub macOS runner. The zipped Bomberman.app is attached to the run as an
+# artifact.
+name: macOS client
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/macos-client.yml"
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust targets
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Build
+        run: |
+          cargo build --release -p bomber-client --target aarch64-apple-darwin
+          cargo build --release -p bomber-client --target x86_64-apple-darwin
+
+      - name: Bundle Bomberman.app
+        run: |
+          APP=dist/Bomberman.app
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          lipo -create -output "$APP/Contents/MacOS/bomberman" \
+            target/aarch64-apple-darwin/release/bomberman \
+            target/x86_64-apple-darwin/release/bomberman
+          VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+
+          # Icon from the Windows .ico. Best effort: the app works without it.
+          ICON_KEY=""
+          if sips -s format png crates/bomber-client/assets/bomberman.ico --out icon.png >/dev/null 2>&1; then
+            mkdir icon.iconset
+            for size in 16 32 128 256 512; do
+              sips -z $size $size icon.png --out icon.iconset/icon_${size}x${size}.png >/dev/null
+              sips -z $((size * 2)) $((size * 2)) icon.png --out icon.iconset/icon_${size}x${size}@2x.png >/dev/null
+            done
+            if iconutil -c icns icon.iconset -o "$APP/Contents/Resources/bomberman.icns"; then
+              ICON_KEY="<key>CFBundleIconFile</key><string>bomberman</string>"
+            fi
+          fi
+
+          cat > "$APP/Contents/Info.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>Bomberman</string>
+            <key>CFBundleDisplayName</key><string>Bomberman</string>
+            <key>CFBundleIdentifier</key><string>de.btc.bomberman</string>
+            <key>CFBundleExecutable</key><string>bomberman</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>${VERSION}</string>
+            <key>CFBundleVersion</key><string>${VERSION}</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+            ${ICON_KEY}
+          </dict>
+          </plist>
+          PLIST
+
+          # Ad-hoc signature: Apple Silicon refuses to run unsigned code.
+          codesign --force --deep --sign - "$APP"
+          lipo -info "$APP/Contents/MacOS/bomberman"
+          cd dist && ditto -c -k --keepParent Bomberman.app Bomberman-macOS.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bomberman-macOS
+          path: dist/Bomberman-macOS.zip
