@@ -1,0 +1,35 @@
+[Unit]
+Description=Bomberman arena server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bomberman
+Group=bomberman
+ExecStart=/opt/bomberman-l4d/bin/bomber-server --config /opt/bomberman-l4d/server.toml
+# The server looks for its (optional) web visualizer relative to here.
+WorkingDirectory=/opt/bomberman-l4d
+Environment=RUST_LOG=info
+# Plain log lines in the journal, without terminal colour codes.
+Environment=NO_COLOR=1
+Restart=on-failure
+RestartSec=2
+
+# The server needs a UDP and a TCP socket and nothing else.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

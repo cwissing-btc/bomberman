@@ -1,0 +1,21 @@
+[package]
+name = "bomber-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Bomberman player client: game view, lobby with start controls, built-in bot"
+
+[[bin]]
+name = "bomberman"
+path = "src/main.rs"
+
+[dependencies]
+bomber-protocol = { workspace = true }
+bomber-domain = { workspace = true }
+bomber-bot = { workspace = true }
+macroquad = { version = "0.4", features = ["audio"] }
+serde_json = { workspace = true }
+serde = { workspace = true }
+
+[build-dependencies]
+embed-resource = "3"

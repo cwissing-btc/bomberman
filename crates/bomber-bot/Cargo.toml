@@ -1,0 +1,10 @@
+[package]
+name = "bomber-bot"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The built-in Bomberman bot: world reconstruction from frames and the decision logic, shared by the player client and the server"
+
+[dependencies]
+bomber-domain = { workspace = true }
+bomber-protocol = { workspace = true }
